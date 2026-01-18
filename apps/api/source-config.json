@@ -1,0 +1,14 @@
+﻿{
+  "ImageRepository": {
+    "ImageIdentifier": "653389884063.dkr.ecr.us-east-1.amazonaws.com/lottery-api:latest",
+    "ImageRepositoryType": "ECR",
+    "ImageConfiguration": {
+      "Port": "8000",
+      "RuntimeEnvironmentVariables": {
+        "DATABASE_URL": "postgresql://postgres:Tk55050934@lottery-db.car8sokia05m.us-east-1.rds.amazonaws.com:5432/lottery",
+        "NODE_ENV": "production"
+      }
+    }
+  },
+  "AutoDeploymentsEnabled": true
+}

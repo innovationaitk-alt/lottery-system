@@ -1,0 +1,37 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lottery-shop-web
+  namespace: lottery-system
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: lottery-shop-web
+  template:
+    metadata:
+      labels:
+        app: lottery-shop-web
+    spec:
+      containers:
+      - name: shop-web
+        image: 653389884063.dkr.ecr.us-east-1.amazonaws.com/lottery-shop-web:latest
+        ports:
+        - containerPort: 3000
+        env:
+        - name: NEXT_PUBLIC_API_URL
+          value: http://lottery-api:8000
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: lottery-shop-web
+  namespace: lottery-system
+spec:
+  selector:
+    app: lottery-shop-web
+  ports:
+  - protocol: TCP
+    port: 3000
+    targetPort: 3000
+  type: ClusterIP

@@ -1,0 +1,21 @@
+﻿apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: lottery-worker
+  namespace: lottery-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: lottery-worker
+  template:
+    metadata:
+      labels:
+        app: lottery-worker
+    spec:
+      containers:
+      - name: worker
+        image: 653389884063.dkr.ecr.us-east-1.amazonaws.com/lottery-worker:latest
+        envFrom:
+        - secretRef:
+            name: lottery-secrets

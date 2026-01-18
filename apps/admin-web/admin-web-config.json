@@ -1,0 +1,18 @@
+﻿{
+  "ImageRepository": {
+    "ImageIdentifier": "653389884063.dkr.ecr.us-east-1.amazonaws.com/lottery-admin-web:latest",
+    "ImageConfiguration": {
+      "RuntimeEnvironmentVariables": {
+        "NEXT_PUBLIC_API_URL": "https://3bwyzdcvmm.us-east-1.awsapprunner.com",
+        "NEXT_PUBLIC_ADMIN_USERNAME": "admin",
+        "NEXT_PUBLIC_ADMIN_PASSWORD": "admin123"
+      },
+      "Port": "3000"
+    },
+    "ImageRepositoryType": "ECR"
+  },
+  "AutoDeploymentsEnabled": false,
+  "AuthenticationConfiguration": {
+    "AccessRoleArn": "arn:aws:iam::653389884063:role/AppRunnerECRAccessRole"
+  }
+}
