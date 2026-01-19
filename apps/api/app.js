@@ -4,14 +4,27 @@ const { Pool } = require('pg');
 
 const app = express();
 
-// ✅ CORS設定を最初に追加
+// ✅ すべてのVercelデプロイURLを許可するCORS設定
 app.use(cors({
-  origin: [
-    'http://localhost:3000',
-    'http://localhost:3001',
-    'https://lottery-admin-web-kappa.vercel.app',
-    'https://lottery-admin-1w4mjju0u-innovationaitk-alts-projects.vercel.app'
-  ],
+  origin: function(origin, callback) {
+    // ローカル開発環境
+    const allowedLocalOrigins = [
+      'http://localhost:3000',
+      'http://localhost:3001'
+    ];
+    
+    // Vercelのドメイン（すべてのデプロイURLを許可）
+    const isVercelDomain = origin && (
+      origin.endsWith('.vercel.app') ||
+      origin.endsWith('lottery-admin-web-kappa.vercel.app')
+    );
+    
+    if (!origin || allowedLocalOrigins.includes(origin) || isVercelDomain) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true
