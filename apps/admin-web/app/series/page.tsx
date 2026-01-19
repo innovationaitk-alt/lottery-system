@@ -1,8 +1,6 @@
-'use client'
+﻿"use client"
 
 import { useState, useEffect } from 'react'
-
-const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 interface Series {
   series_id: number
@@ -13,21 +11,25 @@ interface Series {
   start_date: string
   end_date: string
   status: string
+  animation_video_url?: string
   created_at: string
 }
 
-export default function SeriesManagement() {
+export default function SeriesPage() {
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
   const [series, setSeries] = useState<Series[]>([])
   const [loading, setLoading] = useState(true)
-  const [showModal, setShowModal] = useState(false)
+  const [isModalOpen, setIsModalOpen] = useState(false)
+  const [editingSeries, setEditingSeries] = useState<Series | null>(null)
   const [formData, setFormData] = useState({
     name: '',
     description: '',
-    price_jpy: '',
-    total_slots: '100',
+    price_jpy: 0,
+    total_slots: 0,
     start_date: '',
     end_date: '',
-    status: 'active'
+    status: 'planned',
+    animation_video_url: ''
   })
 
   useEffect(() => {
@@ -37,8 +39,10 @@ export default function SeriesManagement() {
   const fetchSeries = async () => {
     try {
       const res = await fetch(`${API_URL}/admin/series`)
-      const data = await res.json()
-      setSeries(data)
+      if (res.ok) {
+        const data = await res.json()
+        setSeries(data)
+      }
     } catch (error) {
       console.error('Failed to fetch series:', error)
     } finally {
@@ -46,272 +50,285 @@ export default function SeriesManagement() {
     }
   }
 
+  const handleOpenModal = (s?: Series) => {
+    if (s) {
+      setEditingSeries(s)
+      setFormData({
+        name: s.name,
+        description: s.description,
+        price_jpy: s.price_jpy,
+        total_slots: s.total_slots,
+        start_date: s.start_date.split('T')[0],
+        end_date: s.end_date.split('T')[0],
+        status: s.status,
+        animation_video_url: s.animation_video_url || ''
+      })
+    } else {
+      setEditingSeries(null)
+      setFormData({
+        name: '',
+        description: '',
+        price_jpy: 0,
+        total_slots: 0,
+        start_date: '',
+        end_date: '',
+        status: 'planned',
+        animation_video_url: ''
+      })
+    }
+    setIsModalOpen(true)
+  }
+
+  const handleCloseModal = () => {
+    setIsModalOpen(false)
+    setEditingSeries(null)
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     try {
-      const res = await fetch(`${API_URL}/admin/series`, {
-        method: 'POST',
+      const url = editingSeries
+        ? `${API_URL}/admin/series/${editingSeries.series_id}`
+        : `${API_URL}/admin/series`
+      const method = editingSeries ? 'PUT' : 'POST'
+      const res = await fetch(url, {
+        method,
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...formData,
-          price_jpy: Number(formData.price_jpy),
-          total_slots: Number(formData.total_slots)
-        })
+        body: JSON.stringify(formData)
       })
-      
       if (res.ok) {
-        alert('シリーズを作成しました！')
-        setShowModal(false)
-        setFormData({
-          name: '',
-          description: '',
-          price_jpy: '',
-          total_slots: '100',
-          start_date: '',
-          end_date: '',
-          status: 'active'
-        })
+        alert(editingSeries ? 'シリーズを更新しました' : 'シリーズを作成しました')
+        handleCloseModal()
         fetchSeries()
       } else {
-        alert('作成に失敗しました')
+        const errorData = await res.json()
+        alert(`エラー: ${errorData.detail || 'シリーズの保存に失敗しました'}`)
       }
     } catch (error) {
-      console.error('Error creating series:', error)
+      console.error('Submit error:', error)
       alert('エラーが発生しました')
     }
   }
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString('ja-JP')
-  }
-
-  const formatPrice = (price: number) => {
-    return `¥${price.toLocaleString()}`
-  }
-
-  const getStatusBadge = (status: string) => {
-    const colors = {
-      active: 'bg-green-100 text-green-800',
-      inactive: 'bg-gray-100 text-gray-800',
-      completed: 'bg-blue-100 text-blue-800'
+  const handleDelete = async (seriesId: number) => {
+    if (!confirm('本当に削除しますか？')) return
+    try {
+      const res = await fetch(`${API_URL}/admin/series/${seriesId}`, { method: 'DELETE' })
+      if (res.ok) {
+        alert('シリーズを削除しました')
+        fetchSeries()
+      } else {
+        alert('削除に失敗しました')
+      }
+    } catch (error) {
+      console.error('Delete error:', error)
+      alert('削除に失敗しました')
     }
-    const labels = {
-      active: '販売中',
-      inactive: '停止中',
-      completed: '終了'
-    }
-    return (
-      <span className={`px-3 py-1 rounded-full text-xs font-semibold ${colors[status as keyof typeof colors] || colors.inactive}`}>
-        {labels[status as keyof typeof labels] || status}
-      </span>
-    )
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center min-h-screen">
-        <div className="text-xl text-gray-600">読み込み中...</div>
-      </div>
-    )
+  const rarityColors = {
+    planned: 'bg-gray-500',
+    active: 'bg-green-500',
+    ended: 'bg-red-500'
   }
+
+  if (loading) return <div className="p-8">読み込み中...</div>
 
   return (
-    <div className="p-8 max-w-7xl mx-auto">
-      {/* ヘッダー */}
-      <div className="mb-8 flex justify-between items-center">
-        <div>
-          <h1 className="text-3xl font-bold text-gray-900">シリーズ管理</h1>
-          <p className="mt-2 text-gray-600">宝くじシリーズの作成・管理</p>
-        </div>
+    <div className="p-4 md:p-8">
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl md:text-3xl font-bold">シリーズ管理</h1>
         <button
-          onClick={() => setShowModal(true)}
-          className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white px-6 py-3 rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all duration-200 flex items-center gap-2"
+          onClick={() => handleOpenModal()}
+          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          新規シリーズ作成
+          新規作成
         </button>
       </div>
 
-      {/* シリーズ一覧 */}
-      {series.length === 0 ? (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 p-12 text-center">
-          <svg className="w-16 h-16 mx-auto text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M20 13V6a2 2 0 00-2-2H6a2 2 0 00-2 2v7m16 0v5a2 2 0 01-2 2H6a2 2 0 01-2-2v-5m16 0h-2.586a1 1 0 00-.707.293l-2.414 2.414a1 1 0 01-.707.293h-3.172a1 1 0 01-.707-.293l-2.414-2.414A1 1 0 006.586 13H4" />
-          </svg>
-          <h3 className="text-xl font-semibold text-gray-900 mb-2">シリーズがまだありません</h3>
-          <p className="text-gray-600 mb-6">「新規シリーズ作成」ボタンから最初のシリーズを作成しましょう</p>
-          <button
-            onClick={() => setShowModal(true)}
-            className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-semibold transition-colors"
-          >
-            シリーズを作成
-          </button>
-        </div>
-      ) : (
-        <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-          <table className="w-full">
-            <thead className="bg-gray-50 border-b border-gray-200">
-              <tr>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ID</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">シリーズ名</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">価格</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">スロット数</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">期間</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">ステータス</th>
-                <th className="px-6 py-4 text-left text-xs font-semibold text-gray-600 uppercase tracking-wider">操作</th>
+      {/* Desktop: Table */}
+      <div className="hidden md:block overflow-x-auto">
+        <table className="w-full bg-white shadow-md rounded-lg">
+          <thead className="bg-gray-200">
+            <tr>
+              <th className="px-4 py-3 text-left">ID</th>
+              <th className="px-4 py-3 text-left">名前</th>
+              <th className="px-4 py-3 text-left">価格(円)</th>
+              <th className="px-4 py-3 text-left">スロット数</th>
+              <th className="px-4 py-3 text-left">ステータス</th>
+              <th className="px-4 py-3 text-left">動画URL</th>
+              <th className="px-4 py-3 text-left">操作</th>
+            </tr>
+          </thead>
+          <tbody>
+            {series.map((s) => (
+              <tr key={s.series_id} className="border-b hover:bg-gray-50">
+                <td className="px-4 py-3">{s.series_id}</td>
+                <td className="px-4 py-3">{s.name}</td>
+                <td className="px-4 py-3">¥{s.price_jpy}</td>
+                <td className="px-4 py-3">{s.total_slots}</td>
+                <td className="px-4 py-3">
+                  <span className={`px-3 py-1 rounded-full text-white text-sm ${rarityColors[s.status as keyof typeof rarityColors] || 'bg-gray-400'}`}>
+                    {s.status}
+                  </span>
+                </td>
+                <td className="px-4 py-3">
+                  {s.animation_video_url ? (
+                    <span className="text-green-600">✓ 設定済み</span>
+                  ) : (
+                    <span className="text-gray-400">未設定</span>
+                  )}
+                </td>
+                <td className="px-4 py-3">
+                  <button onClick={() => handleOpenModal(s)} className="text-blue-600 hover:underline mr-2">編集</button>
+                  <button onClick={() => handleDelete(s.series_id)} className="text-red-600 hover:underline">削除</button>
+                </td>
               </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {series.map((s) => (
-                <tr key={s.series_id} className="hover:bg-gray-50 transition-colors">
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">#{s.series_id}</td>
-                  <td className="px-6 py-4">
-                    <div className="text-sm font-semibold text-gray-900">{s.name}</div>
-                    <div className="text-sm text-gray-500 mt-1">{s.description}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-semibold text-gray-900">{formatPrice(s.price_jpy)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{s.total_slots.toLocaleString()} スロット</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
-                    <div>{formatDate(s.start_date)}</div>
-                    <div className="text-xs text-gray-500">〜 {formatDate(s.end_date)}</div>
-                  </td>
-                  <td className="px-6 py-4 whitespace-nowrap">{getStatusBadge(s.status)}</td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm">
-                    <div className="flex gap-2">
-                      <button className="text-blue-600 hover:text-blue-800 font-semibold hover:underline">編集</button>
-                      <button className="text-red-600 hover:text-red-800 font-semibold hover:underline">削除</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-      {/* モーダル */}
-      {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-6 border-b border-gray-200">
-              <div className="flex justify-between items-center">
-                <h2 className="text-2xl font-bold text-gray-900">新規シリーズ作成</h2>
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
+      {/* Mobile: Cards */}
+      <div className="md:hidden space-y-4">
+        {series.map((s) => (
+          <div key={s.series_id} className="bg-white p-4 rounded-lg shadow">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="font-bold text-lg">{s.name}</h3>
+              <span className={`px-2 py-1 rounded-full text-white text-xs ${rarityColors[s.status as keyof typeof rarityColors] || 'bg-gray-400'}`}>
+                {s.status}
+              </span>
             </div>
+            <p className="text-sm text-gray-600 mb-2">{s.description}</p>
+            <div className="text-sm space-y-1">
+              <div>価格: ¥{s.price_jpy}</div>
+              <div>スロット数: {s.total_slots}</div>
+              <div>動画: {s.animation_video_url ? '✓ 設定済み' : '未設定'}</div>
+            </div>
+            <div className="mt-3 flex gap-2">
+              <button onClick={() => handleOpenModal(s)} className="flex-1 bg-blue-600 text-white px-3 py-2 rounded-lg">編集</button>
+              <button onClick={() => handleDelete(s.series_id)} className="flex-1 bg-red-600 text-white px-3 py-2 rounded-lg">削除</button>
+            </div>
+          </div>
+        ))}
+      </div>
 
-            <form onSubmit={handleSubmit} className="p-6 space-y-6">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">シリーズ名 *</label>
-                <input
-                  type="text"
-                  required
-                  value={formData.name}
-                  onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="例: 2024年新春キャンペーン"
-                />
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">説明</label>
-                <textarea
-                  value={formData.description}
-                  onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-                  rows={3}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  placeholder="シリーズの詳細説明を入力してください"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">価格（円）*</label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.price_jpy}
-                    onChange={(e) => setFormData({ ...formData, price_jpy: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="1000"
-                  />
+      {/* Modal */}
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-lg w-full max-w-lg max-h-[90vh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-xl font-bold mb-4">{editingSeries ? 'シリーズ編集' : '新規シリーズ作成'}</h2>
+              <form onSubmit={handleSubmit}>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block mb-2 font-semibold">シリーズ名</label>
+                    <input
+                      type="text"
+                      placeholder="シリーズ名"
+                      value={formData.name}
+                      onChange={(e) => setFormData({...formData, name: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 font-semibold">説明</label>
+                    <textarea
+                      placeholder="説明"
+                      value={formData.description}
+                      onChange={(e) => setFormData({...formData, description: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      rows={3}
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 font-semibold">価格（円）</label>
+                    <input
+                      type="number"
+                      placeholder="価格(円)"
+                      value={formData.price_jpy}
+                      onChange={(e) => setFormData({...formData, price_jpy: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 font-semibold">スロット数</label>
+                    <input
+                      type="number"
+                      placeholder="スロット数"
+                      value={formData.total_slots}
+                      onChange={(e) => setFormData({...formData, total_slots: Number(e.target.value)})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 font-semibold">開始日</label>
+                    <input
+                      type="date"
+                      value={formData.start_date}
+                      onChange={(e) => setFormData({...formData, start_date: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 font-semibold">終了日</label>
+                    <input
+                      type="date"
+                      value={formData.end_date}
+                      onChange={(e) => setFormData({...formData, end_date: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                      required
+                    />
+                  </div>
+                  <div>
+                    <label className="block mb-2 font-semibold">ステータス</label>
+                    <select
+                      value={formData.status}
+                      onChange={(e) => setFormData({...formData, status: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    >
+                      <option value="planned">計画中</option>
+                      <option value="active">進行中</option>
+                      <option value="ended">終了</option>
+                    </select>
+                  </div>
+                  <div className="border-t pt-4">
+                    <label className="block mb-2 font-semibold">🎬 抽選アニメーション動画URL</label>
+                    <input
+                      type="text"
+                      placeholder="https://example.com/animation.mp4"
+                      value={formData.animation_video_url}
+                      onChange={(e) => setFormData({...formData, animation_video_url: e.target.value})}
+                      className="w-full px-3 py-2 border rounded-lg"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      ※ アップロードページで動画をアップロードし、URLをここに貼り付けてください
+                    </p>
+                    {formData.animation_video_url && (
+                      <a 
+                        href="/upload" 
+                        target="_blank" 
+                        className="text-blue-600 text-sm hover:underline mt-2 inline-block"
+                      >
+                        → 動画をアップロード
+                      </a>
+                    )}
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">スロット数 *</label>
-                  <input
-                    type="number"
-                    required
-                    value={formData.total_slots}
-                    onChange={(e) => setFormData({ ...formData, total_slots: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                    placeholder="100"
-                  />
+                <div className="flex gap-3 mt-6">
+                  <button type="submit" className="flex-1 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg">
+                    {editingSeries ? '更新' : '作成'}
+                  </button>
+                  <button type="button" onClick={handleCloseModal} className="flex-1 bg-gray-300 hover:bg-gray-400 px-4 py-2 rounded-lg">
+                    キャンセル
+                  </button>
                 </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">開始日 *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.start_date}
-                    onChange={(e) => setFormData({ ...formData, start_date: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">終了日 *</label>
-                  <input
-                    type="date"
-                    required
-                    value={formData.end_date}
-                    onChange={(e) => setFormData({ ...formData, end_date: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">ステータス</label>
-                <select
-                  value={formData.status}
-                  onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
-                >
-                  <option value="active">販売中</option>
-                  <option value="inactive">停止中</option>
-                  <option value="completed">終了</option>
-                </select>
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <button
-                  type="button"
-                  onClick={() => setShowModal(false)}
-                  className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-50 transition-colors"
-                >
-                  キャンセル
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 px-6 py-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white rounded-lg font-semibold shadow-lg hover:shadow-xl transition-all"
-                >
-                  作成する
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         </div>
       )}

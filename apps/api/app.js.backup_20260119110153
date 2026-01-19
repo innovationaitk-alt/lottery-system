@@ -1,4 +1,4 @@
-﻿const express = require('express');
+const express = require('express');
 const cors = require('cors');
 const { Pool } = require('pg');
 
@@ -61,14 +61,14 @@ app.get('/admin/series', async (req, res) => {
 
 // POST /admin/series - 新規シリーズ作成
 app.post('/admin/series', async (req, res) => {
-  const { name, description, price_jpy, total_slots, start_date, end_date, status, animation_video_url } = req.body;
+  const { name, description, price_jpy, total_slots, start_date, end_date, status } = req.body;
   
   try {
     const result = await pool.query(
-      `INSERT INTO series (name, description, price_jpy, total_slots, start_date, end_date, status, animation_video_url)
+      `INSERT INTO series (name, description, price_jpy, total_slots, start_date, end_date, status)
        VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
-      [name, description, price_jpy, total_slots, start_date, end_date, status || 'active', animation_video_url || null]
+      [name, description, price_jpy, total_slots, start_date, end_date, status || 'active']
     );
     res.status(201).json(result.rows[0]);
   } catch (error) {
@@ -102,65 +102,6 @@ app.get('/admin/series/:id/slots', async (req, res) => {
   } catch (error) {
     console.error('Error fetching slots:', error);
     res.status(500).json({ error: 'Failed to fetch slots' });
-  }
-});
-
-
-// PUT /admin/series/:id - シリーズ更新
-app.put('/admin/series/:id', async (req, res) => {
-  const { id } = req.params;
-  const { name, description, price_jpy, total_slots, start_date, end_date, status, animation_video_url } = req.body;
-
-  try {
-    const result = await pool.query(
-      `UPDATE series 
-       SET name = });
-
-, 
-           description = // POST /admin/slots/:id/card, 
-           price_jpy = $3, 
-           total_slots = $4, 
-           start_date = $5, 
-           end_date = $6, 
-           status = $7,
-           animation_video_url = $8,
-           updated_at = CURRENT_TIMESTAMP
-       WHERE series_id = $9
-       RETURNING *`,
-      [name, description, price_jpy, total_slots, start_date, end_date, status, animation_video_url || null, id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Series not found' });
-    }
-    
-    res.json(result.rows[0]);
-  } catch (error) {
-    console.error('Error updating series:', error);
-    res.status(500).json({ error: 'Failed to update series' });
-  }
-});
-
-// DELETE /admin/series/:id - シリーズ削除
-app.delete('/admin/series/:id', async (req, res) => {
-  const { id } = req.params;
-
-  try {
-    const result = await pool.query(
-      'DELETE FROM series WHERE series_id = });
-
- RETURNING *',
-      [id]
-    );
-    
-    if (result.rows.length === 0) {
-      return res.status(404).json({ error: 'Series not found' });
-    }
-    
-    res.json({ message: 'Series deleted successfully', series: result.rows[0] });
-  } catch (error) {
-    console.error('Error deleting series:', error);
-    res.status(500).json({ error: 'Failed to delete series' });
   }
 });
 
