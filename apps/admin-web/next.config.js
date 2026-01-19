@@ -1,10 +1,6 @@
 ﻿/** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: 'export',
-  trailingSlash: true,
-  images: {
-    unoptimized: true
-  }
+  // SSR モード（output: 'export' を削除）
 }
 
 module.exports = nextConfig
