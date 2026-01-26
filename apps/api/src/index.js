@@ -2,6 +2,23 @@
 const cors = require('cors');
 require('dotenv').config();
 
+// Environment validation
+const requiredEnvVars = ['DATABASE_URL', 'PORT'];
+const missingEnvVars = requiredEnvVars.filter(varName => !process.env[varName]);
+
+if (missingEnvVars.length > 0) {
+  console.error('[API] ERROR: Missing required environment variables:', missingEnvVars.join(', '));
+  process.exit(1);
+}
+
+// Warn about optional but recommended env vars
+if (!process.env.STRIPE_SECRET_KEY) {
+  console.warn('[API] WARNING: STRIPE_SECRET_KEY not set - Stripe payments will be disabled');
+}
+if (!process.env.S3_ENDPOINT) {
+  console.warn('[API] WARNING: S3_ENDPOINT not set - File uploads may not work');
+}
+
 const purchaseRoutes = require('./routes/purchase');
 const webhookRoutes = require('./routes/webhook');
 const adminRoutes = require('./routes/admin');
@@ -22,6 +39,6 @@ app.get('/health', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log('🚀 API server running on port ' + PORT);
-  console.log('📊 Health check: http://localhost:' + PORT + '/health');
+  console.log('[API] Server running on port ' + PORT);
+  console.log('[API] Health check: http://localhost:' + PORT + '/health');
 });

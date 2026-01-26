@@ -36,8 +36,8 @@ services:
       S3_ACCESS_KEY: minioadmin
       S3_SECRET_KEY: minioadmin
       S3_REGION: us-east-1
-      STRIPE_SECRET_KEY: infra\k8s{STRIPE_SECRET_KEY:-}
-      STRIPE_WEBHOOK_SECRET: infra\k8s{STRIPE_WEBHOOK_SECRET:-}
+      STRIPE_SECRET_KEY: ${STRIPE_SECRET_KEY:-}
+      STRIPE_WEBHOOK_SECRET: ${STRIPE_WEBHOOK_SECRET:-}
       PORT: 8000
     depends_on:
       - db

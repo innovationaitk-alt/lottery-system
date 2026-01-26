@@ -41,7 +41,7 @@ router.post('/stripe', async (req, res) => {
       
       await pool.query('COMMIT');
       
-      console.log('✅ Slot consumed:', slot_id);
+      console.log('[Webhook] Slot consumed:', slot_id);
     } catch (error) {
       await pool.query('ROLLBACK');
       console.error('Webhook processing error:', error);
